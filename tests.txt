@@ -1,0 +1,557 @@
+# Testing Code Structure – Advanced Social Media Platform
+
+## Testing Folder Structure
+
+```bash
+tests/
+│
+├── backend/
+│   ├── auth.test.js
+│   ├── chat.test.js
+│   ├── upload.test.js
+│   └── notification.test.js
+│
+├── frontend/
+│   ├── LoginPage.test.jsx
+│   ├── ChatWindow.test.jsx
+│   ├── NotificationBell.test.jsx
+│   └── MediaUpload.test.jsx
+│
+├── setup/
+│   ├── jest.setup.js
+│   └── mockSocket.js
+│
+├── package.json
+└── README.md
+```
+
+---
+
+# 1. Jest Setup Configuration
+
+## tests/setup/jest.setup.js
+
+```javascript
+import "@testing-library/jest-dom";
+
+global.console = {
+  ...console,
+  error: jest.fn(),
+  warn: jest.fn(),
+};
+```
+
+---
+
+# 2. Mock Socket.io Client
+
+## tests/setup/mockSocket.js
+
+```javascript
+export const mockSocketClient = {
+  on: jest.fn(),
+
+  emit: jest.fn(),
+
+  disconnect: jest.fn(),
+
+  off: jest.fn(),
+};
+```
+
+---
+
+# 3. Frontend Login Page Test
+
+## tests/frontend/LoginPage.test.jsx
+
+```javascript
+import { render, screen, fireEvent } from "@testing-library/react";
+
+import LoginPage from "../../src/pages/LoginPage";
+
+describe("Login Page Component", () => {
+
+  test("renders login form correctly", () => {
+
+    render(<LoginPage />);
+
+    expect(
+      screen.getByText(/login/i)
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByPlaceholderText(/email/i)
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByPlaceholderText(/password/i)
+    ).toBeInTheDocument();
+  });
+
+  test("updates input fields correctly", () => {
+
+    render(<LoginPage />);
+
+    const emailInputField =
+      screen.getByPlaceholderText(/email/i);
+
+    const passwordInputField =
+      screen.getByPlaceholderText(/password/i);
+
+    fireEvent.change(emailInputField, {
+      target: {
+        value: "test@example.com",
+      },
+    });
+
+    fireEvent.change(passwordInputField, {
+      target: {
+        value: "Password123",
+      },
+    });
+
+    expect(emailInputField.value).toBe(
+      "test@example.com"
+    );
+
+    expect(passwordInputField.value).toBe(
+      "Password123"
+    );
+  });
+
+});
+```
+
+---
+
+# 4. Frontend Chat Window Test
+
+## tests/frontend/ChatWindow.test.jsx
+
+```javascript
+import { render, screen } from "@testing-library/react";
+
+import ChatWindow from "../../src/components/chat/ChatWindow";
+
+describe("Chat Window Component", () => {
+
+  test("renders chat heading", () => {
+
+    render(
+      <ChatWindow selectedChatRoom="room-101" />
+    );
+
+    expect(
+      screen.getByText(/chat room/i)
+    ).toBeInTheDocument();
+  });
+
+});
+```
+
+---
+
+# 5. Notification Component Test
+
+## tests/frontend/NotificationBell.test.jsx
+
+```javascript
+import { render, screen } from "@testing-library/react";
+
+import NotificationBell from
+"../../src/components/notifications/NotificationBell";
+
+describe("Notification Bell Component", () => {
+
+  test("renders notification button", () => {
+
+    render(<NotificationBell />);
+
+    expect(
+      screen.getByText(/notifications/i)
+    ).toBeInTheDocument();
+  });
+
+});
+```
+
+---
+
+# 6. Media Upload Component Test
+
+## tests/frontend/MediaUpload.test.jsx
+
+```javascript
+import { render, screen, fireEvent } from "@testing-library/react";
+
+import MediaUpload from
+"../../src/components/upload/MediaUpload";
+
+describe("Media Upload Component", () => {
+
+  test("renders upload button", () => {
+
+    render(<MediaUpload />);
+
+    expect(
+      screen.getByText(/upload file/i)
+    ).toBeInTheDocument();
+  });
+
+  test("handles file selection", () => {
+
+    render(<MediaUpload />);
+
+    const fileInputField =
+      screen.getByRole("textbox");
+
+    const sampleFile = new File(
+      ["sample"],
+      "sample.png",
+      {
+        type: "image/png",
+      }
+    );
+
+    fireEvent.change(fileInputField, {
+      target: {
+        files: [sampleFile],
+      },
+    });
+
+    expect(fileInputField.files[0]).toBe(sampleFile);
+  });
+
+});
+```
+
+---
+
+# 7. Backend Authentication API Test
+
+## tests/backend/auth.test.js
+
+```javascript
+const request = require("supertest");
+
+const app = require("../../backend/app");
+
+describe("Authentication API", () => {
+
+  test("registers a new user successfully", async () => {
+
+    const userPayload = {
+      fullName: "John Smith",
+      emailAddress: "johnsmith@example.com",
+      password: "Password123",
+    };
+
+    const response = await request(app)
+      .post("/api/auth/register")
+      .send(userPayload);
+
+    expect(response.statusCode).toBe(201);
+
+    expect(response.body.success).toBe(true);
+
+    expect(response.body.user.emailAddress)
+      .toBe(userPayload.emailAddress);
+  });
+
+});
+```
+
+---
+
+# 8. Backend Chat API Test
+
+## tests/backend/chat.test.js
+
+```javascript
+const request = require("supertest");
+
+const app = require("../../backend/app");
+
+describe("Chat API", () => {
+
+  test("returns chat messages successfully", async () => {
+
+    const response = await request(app)
+      .get("/api/chat/messages");
+
+    expect(response.statusCode).toBe(200);
+  });
+
+});
+```
+
+---
+
+# 9. Backend Upload API Test
+
+## tests/backend/upload.test.js
+
+```javascript
+const request = require("supertest");
+
+const path = require("path");
+
+const app = require("../../backend/app");
+
+describe("Upload API", () => {
+
+  test("uploads media successfully", async () => {
+
+    const response = await request(app)
+      .post("/api/upload")
+      .attach(
+        "mediaFile",
+        path.join(__dirname, "sample-image.png")
+      );
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.body.success).toBe(true);
+  });
+
+});
+```
+
+---
+
+# 10. Notification API Test
+
+## tests/backend/notification.test.js
+
+```javascript
+const request = require("supertest");
+
+const app = require("../../backend/app");
+
+describe("Notification API", () => {
+
+  test("fetches notifications successfully", async () => {
+
+    const response = await request(app)
+      .get("/api/notifications");
+
+    expect(response.statusCode).toBe(200);
+  });
+
+});
+```
+
+---
+
+# 11. Socket.io Event Test
+
+## tests/backend/socket.test.js
+
+```javascript
+const io = require("socket.io-client");
+
+describe("Socket.io Messaging", () => {
+
+  let clientSocket;
+
+  beforeAll((done) => {
+
+    clientSocket = io("http://localhost:5000");
+
+    clientSocket.on("connect", done);
+  });
+
+  afterAll(() => {
+    clientSocket.disconnect();
+  });
+
+  test("sends and receives messages", (done) => {
+
+    const testMessage = {
+      chatRoomId: "room-101",
+      senderId: "user-1",
+      receiverId: "user-2",
+      messageContent: "Hello Testing",
+    };
+
+    clientSocket.emit("send-message", testMessage);
+
+    clientSocket.on(
+      "receive-message",
+      (receivedMessage) => {
+
+        expect(receivedMessage.messageContent)
+          .toBe("Hello Testing");
+
+        done();
+      }
+    );
+  });
+
+});
+```
+
+---
+
+# 12. Performance Testing Example
+
+## tests/backend/performance.test.js
+
+```javascript
+const request = require("supertest");
+
+const app = require("../../backend/app");
+
+describe("Performance Testing", () => {
+
+  test("API responds within acceptable time", async () => {
+
+    const startTime = Date.now();
+
+    await request(app)
+      .get("/api/auth/health");
+
+    const responseTime = Date.now() - startTime;
+
+    expect(responseTime).toBeLessThan(1000);
+  });
+
+});
+```
+
+---
+
+# 13. Security Testing Example
+
+## tests/backend/security.test.js
+
+```javascript
+const request = require("supertest");
+
+const app = require("../../backend/app");
+
+describe("Security Validation", () => {
+
+  test("blocks unauthorized access", async () => {
+
+    const response = await request(app)
+      .get("/api/chat/private");
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  test("prevents NoSQL injection", async () => {
+
+    const maliciousPayload = {
+      emailAddress: {
+        "$gt": ""
+      },
+      password: {
+        "$gt": ""
+      }
+    };
+
+    const response = await request(app)
+      .post("/api/auth/login")
+      .send(maliciousPayload);
+
+    expect(response.statusCode).toBe(400);
+  });
+
+});
+```
+
+---
+
+# 14. Jest Configuration
+
+## package.json
+
+```json
+{
+  "scripts": {
+    "test": "jest --runInBand"
+  },
+
+  "jest": {
+    "testEnvironment": "jsdom",
+
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup/jest.setup.js"
+    ]
+  }
+}
+```
+
+---
+
+# 15. Testing Dependencies Installation
+
+```bash
+npm install --save-dev jest
+npm install --save-dev supertest
+npm install --save-dev @testing-library/react
+npm install --save-dev @testing-library/jest-dom
+npm install --save-dev socket.io-client
+```
+
+---
+
+# 16. CI/CD Testing Workflow
+
+## .github/workflows/test.yml
+
+```yaml
+name: Full Stack Testing Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  frontend-tests:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Frontend Dependencies
+        run: cd frontend && npm install
+
+      - name: Run Frontend Tests
+        run: cd frontend && npm test
+
+  backend-tests:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Backend Dependencies
+        run: cd backend && npm install
+
+      - name: Run Backend Tests
+        run: cd backend && npm test
+```
+
+---
+
+# 17. Testing Features Checklist
+
+✅ Frontend Component Testing
+✅ Backend API Testing
+✅ Socket.io Event Testing
+✅ Upload Feature Testing
+✅ Notification Testing
+✅ Performance Validation
+✅ Security Validation
+✅ Authentication Testing
+✅ Jest Setup Configuration
+✅ GitHub Actions CI/CD Testing
+✅ React Testing Library Support
+✅ Supertest API Validation

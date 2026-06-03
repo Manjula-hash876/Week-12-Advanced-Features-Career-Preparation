@@ -1,0 +1,669 @@
+# Portfolio Website – Advanced Social Media Platform
+
+## Portfolio Website Folder Structure
+
+```bash id="yxh6zq"
+portfolio-website/
+│
+├── public/
+│   ├── favicon.ico
+│   └── profile-photo.png
+│
+├── src/
+│   │
+│   ├── assets/
+│   │   ├── project-banner.png
+│   │   ├── resume.pdf
+│   │   └── socialmedia-preview.png
+│   │
+│   ├── components/
+│   │   ├── Navbar.jsx
+│   │   ├── HeroSection.jsx
+│   │   ├── AboutSection.jsx
+│   │   ├── SkillsSection.jsx
+│   │   ├── ProjectsSection.jsx
+│   │   ├── ExperienceSection.jsx
+│   │   ├── ContactSection.jsx
+│   │   └── Footer.jsx
+│   │
+│   ├── pages/
+│   │   └── HomePage.jsx
+│   │
+│   ├── data/
+│   │   ├── skillsData.js
+│   │   └── projectData.js
+│   │
+│   ├── styles/
+│   │   └── global.css
+│   │
+│   ├── App.jsx
+│   └── main.jsx
+│
+├── .env
+├── package.json
+└── vite.config.js
+```
+
+---
+
+# 1. Main Application File
+
+## src/App.jsx
+
+```javascript id="mce67h"
+import HomePage from "./pages/HomePage";
+
+function App() {
+  return (
+    <div>
+      <HomePage />
+    </div>
+  );
+}
+
+export default App;
+```
+
+---
+
+# 2. Home Page
+
+## src/pages/HomePage.jsx
+
+```javascript id="v9y7x9"
+import Navbar from "../components/Navbar";
+import HeroSection from "../components/HeroSection";
+import AboutSection from "../components/AboutSection";
+import SkillsSection from "../components/SkillsSection";
+import ProjectsSection from "../components/ProjectsSection";
+import ExperienceSection from "../components/ExperienceSection";
+import ContactSection from "../components/ContactSection";
+import Footer from "../components/Footer";
+
+const HomePage = () => {
+  return (
+    <div>
+
+      <Navbar />
+
+      <HeroSection />
+
+      <AboutSection />
+
+      <SkillsSection />
+
+      <ProjectsSection />
+
+      <ExperienceSection />
+
+      <ContactSection />
+
+      <Footer />
+
+    </div>
+  );
+};
+
+export default HomePage;
+```
+
+---
+
+# 3. Navigation Bar
+
+## src/components/Navbar.jsx
+
+```javascript id="4rn7dh"
+const Navbar = () => {
+
+  return (
+    <nav className="navbar-container">
+
+      <h2 className="portfolio-logo">
+        Manjula Portfolio
+      </h2>
+
+      <ul className="nav-links">
+
+        <li>
+          <a href="#about">About</a>
+        </li>
+
+        <li>
+          <a href="#skills">Skills</a>
+        </li>
+
+        <li>
+          <a href="#projects">Projects</a>
+        </li>
+
+        <li>
+          <a href="#contact">Contact</a>
+        </li>
+
+      </ul>
+
+    </nav>
+  );
+};
+
+export default Navbar;
+```
+
+---
+
+# 4. Hero Section
+
+## src/components/HeroSection.jsx
+
+```javascript id="rk8k08"
+const HeroSection = () => {
+
+  return (
+    <section className="hero-section">
+
+      <img
+        src="/profile-photo.png"
+        alt="Developer Profile"
+        className="profile-image"
+      />
+
+      <h1>
+        Hi, I'm Manjula Kalluri
+      </h1>
+
+      <h3>
+        Full Stack Developer | Backend Engineer
+      </h3>
+
+      <p>
+        Passionate about building scalable
+        full-stack applications using React,
+        Node.js, MongoDB, Azure, and DevOps.
+      </p>
+
+      <a
+        href="/resume.pdf"
+        download
+        className="download-button"
+      >
+        Download Resume
+      </a>
+
+    </section>
+  );
+};
+
+export default HeroSection;
+```
+
+---
+
+# 5. About Section
+
+## src/components/AboutSection.jsx
+
+```javascript id="eymvg9"
+const AboutSection = () => {
+
+  return (
+    <section id="about">
+
+      <h2>About Me</h2>
+
+      <p>
+        Experienced Full Stack Developer with
+        expertise in React.js, Node.js,
+        MongoDB, Socket.io, Docker,
+        CI/CD pipelines, and cloud integration.
+      </p>
+
+      <p>
+        Skilled in backend engineering,
+        DevOps automation, testing,
+        and scalable application architecture.
+      </p>
+
+    </section>
+  );
+};
+
+export default AboutSection;
+```
+
+---
+
+# 6. Skills Data
+
+## src/data/skillsData.js
+
+```javascript id="vm7b4h"
+const skillsData = [
+
+  "React.js",
+  "Node.js",
+  "Express.js",
+  "MongoDB",
+  "Socket.io",
+  "Docker",
+  "GitHub Actions",
+  "AWS",
+  "Azure",
+  "CI/CD",
+  "REST APIs",
+  "JWT Authentication",
+  "Cloudinary",
+  "Jest Testing",
+  "Microservices",
+];
+
+export default skillsData;
+```
+
+---
+
+# 7. Skills Section
+
+## src/components/SkillsSection.jsx
+
+```javascript id="afllk6"
+import skillsData from "../data/skillsData";
+
+const SkillsSection = () => {
+
+  return (
+    <section id="skills">
+
+      <h2>Technical Skills</h2>
+
+      <div className="skills-grid">
+
+        {skillsData.map((skillName, index) => (
+
+          <div
+            key={index}
+            className="skill-card"
+          >
+            {skillName}
+          </div>
+
+        ))}
+
+      </div>
+
+    </section>
+  );
+};
+
+export default SkillsSection;
+```
+
+---
+
+# 8. Project Data
+
+## src/data/projectData.js
+
+```javascript id="nwm44g"
+const projectData = [
+
+  {
+    projectTitle:
+      "Advanced Social Media Platform",
+
+    projectDescription:
+      "Real-time social media application with chat, notifications, media uploads, authentication, testing, and CI/CD pipeline.",
+
+    technologyStack:
+      "React, Node.js, MongoDB, Socket.io, Docker",
+
+    githubRepository:
+      "https://github.com/username/socialmedia-platform",
+
+    liveDemo:
+      "https://socialmedia-app.vercel.app",
+  },
+
+  {
+    projectTitle:
+      "E-Commerce Platform",
+
+    projectDescription:
+      "Full-stack shopping application with payment integration and admin dashboard.",
+
+    technologyStack:
+      "React, Express.js, MongoDB",
+
+    githubRepository:
+      "https://github.com/username/ecommerce-platform",
+
+    liveDemo:
+      "https://ecommerce-app.vercel.app",
+  },
+];
+
+export default projectData;
+```
+
+---
+
+# 9. Projects Section
+
+## src/components/ProjectsSection.jsx
+
+```javascript id="wk44r7"
+import projectData from "../data/projectData";
+
+const ProjectsSection = () => {
+
+  return (
+    <section id="projects">
+
+      <h2>Projects</h2>
+
+      <div className="projects-container">
+
+        {projectData.map((projectItem, index) => (
+
+          <div
+            key={index}
+            className="project-card"
+          >
+
+            <h3>
+              {projectItem.projectTitle}
+            </h3>
+
+            <p>
+              {projectItem.projectDescription}
+            </p>
+
+            <p>
+              <strong>Tech Stack:</strong>
+              {projectItem.technologyStack}
+            </p>
+
+            <a
+              href={projectItem.githubRepository}
+              target="_blank"
+            >
+              GitHub
+            </a>
+
+            <a
+              href={projectItem.liveDemo}
+              target="_blank"
+            >
+              Live Demo
+            </a>
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </section>
+  );
+};
+
+export default ProjectsSection;
+```
+
+---
+
+# 10. Experience Section
+
+## src/components/ExperienceSection.jsx
+
+```javascript id="70d6lu"
+const ExperienceSection = () => {
+
+  return (
+    <section id="experience">
+
+      <h2>Experience</h2>
+
+      <div className="experience-card">
+
+        <h3>
+          Full Stack Developer
+        </h3>
+
+        <p>
+          Worked on enterprise applications,
+          backend APIs, DevOps automation,
+          and real-time communication systems.
+        </p>
+
+      </div>
+
+    </section>
+  );
+};
+
+export default ExperienceSection;
+```
+
+---
+
+# 11. Contact Section
+
+## src/components/ContactSection.jsx
+
+```javascript id="tzd15c"
+const ContactSection = () => {
+
+  return (
+    <section id="contact">
+
+      <h2>Contact Me</h2>
+
+      <form className="contact-form">
+
+        <input
+          type="text"
+          placeholder="Your Name"
+        />
+
+        <input
+          type="email"
+          placeholder="Your Email"
+        />
+
+        <textarea
+          placeholder="Your Message"
+        />
+
+        <button type="submit">
+          Send Message
+        </button>
+
+      </form>
+
+    </section>
+  );
+};
+
+export default ContactSection;
+```
+
+---
+
+# 12. Footer Component
+
+## src/components/Footer.jsx
+
+```javascript id="m5xwwg"
+const Footer = () => {
+
+  return (
+    <footer className="footer-container">
+
+      <p>
+        © 2026 Manjula Kalluri.
+        All Rights Reserved.
+      </p>
+
+    </footer>
+  );
+};
+
+export default Footer;
+```
+
+---
+
+# 13. Global CSS
+
+## src/styles/global.css
+
+```css id="vtb5up"
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f5f5;
+}
+
+.hero-section {
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.profile-image {
+  width: 160px;
+  border-radius: 50%;
+}
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+}
+
+.skill-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.project-card {
+  background: white;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+```
+
+---
+
+# 14. Main Entry File
+
+## src/main.jsx
+
+```javascript id="yzzyod"
+import React from "react";
+import ReactDOM from "react-dom/client";
+
+import App from "./App";
+
+import "./styles/global.css";
+
+ReactDOM.createRoot(
+  document.getElementById("root")
+).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+```
+
+---
+
+# 15. Portfolio Environment Variables
+
+## .env
+
+```env id="6a7z0w"
+VITE_BACKEND_API=https://api.socialmediaapp.com
+```
+
+---
+
+# 16. Portfolio Package Installation
+
+```bash id="8xknsv"
+npm install react react-dom
+npm install react-icons
+npm install react-router-dom
+npm install axios
+```
+
+---
+
+# 17. SEO Optimization
+
+## index.html Meta Tags
+
+```html id="8y0g0k"
+<meta
+  name="description"
+  content="Professional Full Stack Developer Portfolio"
+/>
+
+<meta
+  name="keywords"
+  content="React, Node.js, Full Stack Developer"
+/>
+
+<meta
+  property="og:title"
+  content="Manjula Kalluri Portfolio"
+/>
+```
+
+---
+
+# 18. Performance Optimization
+
+## Lazy Loading Example
+
+```javascript id="q4p73t"
+import React, { lazy, Suspense } from "react";
+
+const ProjectsSection = lazy(() =>
+  import("./components/ProjectsSection")
+);
+
+<Suspense fallback={<div>Loading...</div>}>
+  <ProjectsSection />
+</Suspense>
+```
+
+---
+
+# 19. Portfolio Deployment Workflow
+
+## Deployment Commands
+
+```bash id="xfz0hn"
+npm run build
+
+vercel deploy --prod
+```
+
+---
+
+# 20. Portfolio Features Checklist
+
+✅ Responsive Portfolio Website
+✅ React Component Architecture
+✅ Skills & Projects Showcase
+✅ Resume Download Feature
+✅ Contact Form
+✅ SEO Optimization
+✅ Performance Optimization
+✅ Professional UI Design
+✅ Deployment Ready
+✅ GitHub & Live Demo Links
+✅ Modern Frontend Practices

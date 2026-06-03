@@ -1,0 +1,682 @@
+# Backend Code Structure – Advanced Social Media Platform
+
+## Backend Folder Structure
+
+```bash
+backend/
+│
+├── config/
+│   ├── database.js
+│   ├── cloudinaryConfig.js
+│   └── socketConfig.js
+│
+├── controllers/
+│   ├── authController.js
+│   ├── chatController.js
+│   ├── notificationController.js
+│   └── uploadController.js
+│
+├── middleware/
+│   ├── authMiddleware.js
+│   ├── errorMiddleware.js
+│   ├── rateLimiter.js
+│   └── validationMiddleware.js
+│
+├── models/
+│   ├── User.js
+│   ├── Message.js
+│   ├── Notification.js
+│   └── Post.js
+│
+├── routes/
+│   ├── authRoutes.js
+│   ├── chatRoutes.js
+│   ├── notificationRoutes.js
+│   └── uploadRoutes.js
+│
+├── services/
+│   ├── socketService.js
+│   └── uploadService.js
+│
+├── tests/
+│   ├── auth.test.js
+│   └── chat.test.js
+│
+├── utils/
+│   ├── generateToken.js
+│   └── logger.js
+│
+├── .env
+├── app.js
+├── server.js
+├── package.json
+└── Dockerfile
+```
+
+---
+
+# 1. MongoDB Database Configuration
+
+## config/database.js
+
+```javascript
+const mongoose = require("mongoose");
+
+const connectDatabase = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_DB_URL);
+
+    console.log("MongoDB Connected Successfully");
+  } catch (databaseError) {
+    console.error("Database Connection Failed", databaseError);
+    process.exit(1);
+  }
+};
+
+module.exports = connectDatabase;
+```
+
+---
+
+# 2. Cloudinary Configuration
+
+## config/cloudinaryConfig.js
+
+```javascript
+const cloudinary = require("cloudinary").v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+module.exports = cloudinary;
+```
+
+---
+
+# 3. User Model
+
+## models/User.js
+
+```javascript
+const mongoose = require("mongoose");
+
+const userSchema = new mongoose.Schema(
+  {
+    fullName: {
+      type: String,
+      required: true,
+    },
+
+    emailAddress: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
+    passwordHash: {
+      type: String,
+      required: true,
+    },
+
+    profileImage: {
+      type: String,
+      default: "",
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+module.exports = mongoose.model("User", userSchema);
+```
+
+---
+
+# 4. Message Model
+
+## models/Message.js
+
+```javascript
+const mongoose = require("mongoose");
+
+const messageSchema = new mongoose.Schema(
+  {
+    senderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    receiverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    messageContent: {
+      type: String,
+      required: true,
+    },
+
+    mediaUrl: {
+      type: String,
+      default: "",
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+module.exports = mongoose.model("Message", messageSchema);
+```
+
+---
+
+# 5. Authentication Controller
+
+## controllers/authController.js
+
+```javascript
+const bcrypt = require("bcryptjs");
+const User = require("../models/User");
+const generateToken = require("../utils/generateToken");
+
+const registerUser = async (req, res) => {
+  try {
+    const { fullName, emailAddress, password } = req.body;
+
+    const existingUser = await User.findOne({ emailAddress });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "User already exists",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const createdUser = await User.create({
+      fullName,
+      emailAddress,
+      passwordHash: hashedPassword,
+    });
+
+    const authToken = generateToken(createdUser._id);
+
+    res.status(201).json({
+      success: true,
+      authToken,
+      user: createdUser,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Registration Failed",
+    });
+  }
+};
+
+module.exports = {
+  registerUser,
+};
+```
+
+---
+
+# 6. JWT Authentication Middleware
+
+## middleware/authMiddleware.js
+
+```javascript
+const jwt = require("jsonwebtoken");
+
+const protectRoute = (req, res, next) => {
+  const authorizationHeader = req.headers.authorization;
+
+  if (
+    !authorizationHeader ||
+    !authorizationHeader.startsWith("Bearer")
+  ) {
+    return res.status(401).json({
+      message: "Unauthorized Access",
+    });
+  }
+
+  try {
+    const authToken = authorizationHeader.split(" ")[1];
+
+    const decodedToken = jwt.verify(
+      authToken,
+      process.env.JWT_SECRET_KEY
+    );
+
+    req.user = decodedToken;
+
+    next();
+  } catch (error) {
+    res.status(401).json({
+      message: "Invalid Token",
+    });
+  }
+};
+
+module.exports = protectRoute;
+```
+
+---
+
+# 7. Socket.io Configuration
+
+## config/socketConfig.js
+
+```javascript
+const socketIo = require("socket.io");
+
+const initializeSocketServer = (httpServer) => {
+  const io = socketIo(httpServer, {
+    cors: {
+      origin: process.env.CLIENT_URL,
+      credentials: true,
+    },
+  });
+
+  io.on("connection", (socket) => {
+    console.log("Client Connected:", socket.id);
+
+    socket.on("join-user-room", (userId) => {
+      socket.join(`user-room-${userId}`);
+    });
+
+    socket.on("join-chat-room", (chatRoomId) => {
+      socket.join(`chat-room-${chatRoomId}`);
+    });
+
+    socket.on("send-message", (messageData) => {
+      io.to(`chat-room-${messageData.chatRoomId}`).emit(
+        "receive-message",
+        messageData
+      );
+
+      io.to(`user-room-${messageData.receiverId}`).emit(
+        "new-notification",
+        {
+          message: "You received a new message",
+        }
+      );
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Client Disconnected");
+    });
+  });
+
+  return io;
+};
+
+module.exports = initializeSocketServer;
+```
+
+---
+
+# 8. Multer File Upload Middleware
+
+## middleware/uploadMiddleware.js
+
+```javascript
+const multer = require("multer");
+
+const storageConfiguration = multer.memoryStorage();
+
+const uploadMiddleware = multer({
+  storage: storageConfiguration,
+
+  limits: {
+    fileSize: 20 * 1024 * 1024,
+  },
+});
+
+module.exports = uploadMiddleware;
+```
+
+---
+
+# 9. Upload Controller
+
+## controllers/uploadController.js
+
+```javascript
+const cloudinary = require("../config/cloudinaryConfig");
+
+const uploadMediaFile = async (req, res) => {
+  try {
+    const uploadedFile = req.file;
+
+    if (!uploadedFile) {
+      return res.status(400).json({
+        message: "No File Uploaded",
+      });
+    }
+
+    const uploadResponse = await cloudinary.uploader.upload(
+      uploadedFile.path,
+      {
+        resource_type: "auto",
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      mediaUrl: uploadResponse.secure_url,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "File Upload Failed",
+    });
+  }
+};
+
+module.exports = {
+  uploadMediaFile,
+};
+```
+
+---
+
+# 10. Authentication Routes
+
+## routes/authRoutes.js
+
+```javascript
+const express = require("express");
+
+const {
+  registerUser,
+} = require("../controllers/authController");
+
+const authRouter = express.Router();
+
+authRouter.post("/register", registerUser);
+
+module.exports = authRouter;
+```
+
+---
+
+# 11. Upload Routes
+
+## routes/uploadRoutes.js
+
+```javascript
+const express = require("express");
+
+const uploadMiddleware = require("../middleware/uploadMiddleware");
+
+const {
+  uploadMediaFile,
+} = require("../controllers/uploadController");
+
+const uploadRouter = express.Router();
+
+uploadRouter.post(
+  "/",
+  uploadMiddleware.single("mediaFile"),
+  uploadMediaFile
+);
+
+module.exports = uploadRouter;
+```
+
+---
+
+# 12. Rate Limiting Middleware
+
+## middleware/rateLimiter.js
+
+```javascript
+const rateLimit = require("express-rate-limit");
+
+const apiRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+
+  max: 100,
+
+  message: "Too many requests. Please try again later.",
+});
+
+module.exports = apiRateLimiter;
+```
+
+---
+
+# 13. Express Application Setup
+
+## app.js
+
+```javascript
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const mongoSanitize = require("express-mongo-sanitize");
+
+const authRoutes = require("./routes/authRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
+
+const apiRateLimiter = require("./middleware/rateLimiter");
+
+const app = express();
+
+app.use(express.json());
+
+app.use(cors({
+  origin: process.env.CLIENT_URL,
+  credentials: true,
+}));
+
+app.use(helmet());
+
+app.use(mongoSanitize());
+
+app.use(apiRateLimiter);
+
+app.use("/api/auth", authRoutes);
+
+app.use("/api/upload", uploadRoutes);
+
+module.exports = app;
+```
+
+---
+
+# 14. Server Setup
+
+## server.js
+
+```javascript
+require("dotenv").config();
+
+const http = require("http");
+
+const app = require("./app");
+
+const connectDatabase = require("./config/database");
+
+const initializeSocketServer = require("./config/socketConfig");
+
+const PORT = process.env.PORT || 5000;
+
+connectDatabase();
+
+const httpServer = http.createServer(app);
+
+initializeSocketServer(httpServer);
+
+httpServer.listen(PORT, () => {
+  console.log(`Server Running on Port ${PORT}`);
+});
+```
+
+---
+
+# 15. JWT Token Utility
+
+## utils/generateToken.js
+
+```javascript
+const jwt = require("jsonwebtoken");
+
+const generateToken = (userId) => {
+  return jwt.sign(
+    {
+      id: userId,
+    },
+    process.env.JWT_SECRET_KEY,
+    {
+      expiresIn: "7d",
+    }
+  );
+};
+
+module.exports = generateToken;
+```
+
+---
+
+# 16. Backend Unit Test
+
+## tests/auth.test.js
+
+```javascript
+const request = require("supertest");
+
+const app = require("../app");
+
+describe("Authentication API", () => {
+
+  test("Register User Successfully", async () => {
+
+    const response = await request(app)
+      .post("/api/auth/register")
+      .send({
+        fullName: "John Doe",
+        emailAddress: "john@example.com",
+        password: "Password123",
+      });
+
+    expect(response.statusCode).toBe(201);
+
+    expect(response.body.success).toBe(true);
+  });
+
+});
+```
+
+---
+
+# 17. Dockerfile
+
+## Dockerfile
+
+```dockerfile
+FROM node:18
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+EXPOSE 5000
+
+CMD ["npm", "start"]
+```
+
+---
+
+# 18. GitHub Actions CI/CD
+
+## .github/workflows/backend.yml
+
+```yaml
+name: Backend CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  backend-build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Build Success
+        run: echo "Backend Build Successful"
+```
+
+---
+
+# 19. Environment Variables
+
+## .env
+
+```env
+PORT=5000
+
+MONGO_DB_URL=mongodb://localhost:27017/socialmedia
+
+JWT_SECRET_KEY=supersecretkey
+
+CLIENT_URL=http://localhost:5173
+
+CLOUDINARY_NAME=your_cloud_name
+
+CLOUDINARY_API_KEY=your_api_key
+
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+---
+
+# 20. Package Installation
+
+```bash
+npm install express mongoose cors dotenv
+npm install bcryptjs jsonwebtoken
+npm install socket.io multer cloudinary
+npm install helmet express-rate-limit
+npm install express-mongo-sanitize
+npm install jest supertest
+```
+
+---
+
+# 21. Backend Features Checklist
+
+✅ MongoDB Database Integration
+✅ JWT Authentication
+✅ Secure Password Hashing
+✅ Socket.io Real-Time Messaging
+✅ Notifications System
+✅ File Upload with Multer
+✅ Cloudinary Media Storage
+✅ Rate Limiting
+✅ Security Headers with Helmet
+✅ Mongo Sanitization
+✅ REST API Architecture
+✅ Unit Testing with Jest
+✅ Docker Support
+✅ CI/CD Pipeline

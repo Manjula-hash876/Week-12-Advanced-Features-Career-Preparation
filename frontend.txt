@@ -1,0 +1,536 @@
+# Frontend Code Structure – Advanced Social Media Platform
+
+## Project Structure
+
+```bash
+frontend/
+│
+├── public/
+│   └── index.html
+│
+├── src/
+│   ├── api/
+│   │   └── axiosConfig.js
+│   │
+│   ├── components/
+│   │   ├── chat/
+│   │   │   ├── ChatWindow.jsx
+│   │   │   ├── MessageInput.jsx
+│   │   │   └── OnlineUsers.jsx
+│   │   │
+│   │   ├── notifications/
+│   │   │   └── NotificationBell.jsx
+│   │   │
+│   │   ├── upload/
+│   │   │   └── MediaUpload.jsx
+│   │   │
+│   │   ├── layout/
+│   │   │   ├── Navbar.jsx
+│   │   │   └── Sidebar.jsx
+│   │   │
+│   │   └── common/
+│   │       ├── Loader.jsx
+│   │       └── ProtectedRoute.jsx
+│   │
+│   ├── context/
+│   │   ├── AuthContext.jsx
+│   │   └── SocketContext.jsx
+│   │
+│   ├── hooks/
+│   │   └── useSocket.js
+│   │
+│   ├── pages/
+│   │   ├── LoginPage.jsx
+│   │   ├── RegisterPage.jsx
+│   │   ├── DashboardPage.jsx
+│   │   ├── ChatPage.jsx
+│   │   └── ProfilePage.jsx
+│   │
+│   ├── routes/
+│   │   └── AppRoutes.jsx
+│   │
+│   ├── services/
+│   │   ├── authService.js
+│   │   ├── chatService.js
+│   │   └── uploadService.js
+│   │
+│   ├── tests/
+│   │   ├── LoginPage.test.jsx
+│   │   └── ChatWindow.test.jsx
+│   │
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+│
+├── .env
+├── package.json
+└── vite.config.js
+```
+
+---
+
+# 1. Axios Configuration
+
+## src/api/axiosConfig.js
+
+```javascript
+import axios from "axios";
+
+const API = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+  withCredentials: true,
+});
+
+API.interceptors.request.use((config) => {
+  const authToken = localStorage.getItem("authToken");
+
+  if (authToken) {
+    config.headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  return config;
+});
+
+export default API;
+```
+
+---
+
+# 2. Authentication Context
+
+## src/context/AuthContext.jsx
+
+```javascript
+import { createContext, useContext, useState } from "react";
+
+const AuthContext = createContext();
+
+export const AuthProvider = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState(null);
+
+  const loginUser = (userData, token) => {
+    localStorage.setItem("authToken", token);
+    setCurrentUser(userData);
+  };
+
+  const logoutUser = () => {
+    localStorage.removeItem("authToken");
+    setCurrentUser(null);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        currentUser,
+        loginUser,
+        logoutUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => useContext(AuthContext);
+```
+
+---
+
+# 3. Socket.io Hook
+
+## src/hooks/useSocket.js
+
+```javascript
+import { useEffect, useState } from "react";
+import io from "socket.io-client";
+import { useAuth } from "../context/AuthContext";
+
+const SOCKET_SERVER_URL = import.meta.env.VITE_API_URL;
+
+export const useSocket = () => {
+  const { currentUser } = useAuth();
+  const [socketClient, setSocketClient] = useState(null);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const newSocket = io(SOCKET_SERVER_URL, {
+      auth: {
+        token: localStorage.getItem("authToken"),
+      },
+    });
+
+    newSocket.on("connect", () => {
+      console.log("Socket Connected:", newSocket.id);
+
+      newSocket.emit("join-user-room", currentUser._id);
+    });
+
+    setSocketClient(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [currentUser]);
+
+  return socketClient;
+};
+```
+
+---
+
+# 4. Chat Window Component
+
+## src/components/chat/ChatWindow.jsx
+
+```javascript
+import { useEffect, useState } from "react";
+import { useSocket } from "../../hooks/useSocket";
+
+const ChatWindow = ({ selectedChatRoom }) => {
+  const socketClient = useSocket();
+
+  const [chatMessages, setChatMessages] = useState([]);
+  const [typingStatus, setTypingStatus] = useState("");
+
+  useEffect(() => {
+    if (!socketClient || !selectedChatRoom) return;
+
+    socketClient.emit("join-chat-room", selectedChatRoom);
+
+    socketClient.on("receive-message", (incomingMessage) => {
+      setChatMessages((prevMessages) => [
+        ...prevMessages,
+        incomingMessage,
+      ]);
+    });
+
+    socketClient.on("user-typing", (data) => {
+      setTypingStatus(data.message);
+    });
+
+    return () => {
+      socketClient.off("receive-message");
+    };
+  }, [socketClient, selectedChatRoom]);
+
+  return (
+    <div className="chat-window">
+      <h2>Chat Room</h2>
+
+      {chatMessages.map((message, index) => (
+        <div key={index}>
+          <strong>{message.senderName}</strong>
+          <p>{message.content}</p>
+        </div>
+      ))}
+
+      <p>{typingStatus}</p>
+    </div>
+  );
+};
+
+export default ChatWindow;
+```
+
+---
+
+# 5. Media Upload Component
+
+## src/components/upload/MediaUpload.jsx
+
+```javascript
+import { useState } from "react";
+import axios from "axios";
+
+const MediaUpload = () => {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState("");
+
+  const handleFileChange = (event) => {
+    setSelectedFile(event.target.files[0]);
+  };
+
+  const uploadMediaFile = async () => {
+    if (!selectedFile) return;
+
+    const formData = new FormData();
+    formData.append("mediaFile", selectedFile);
+
+    try {
+      setUploadStatus("Uploading...");
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/upload`,
+        formData
+      );
+
+      setUploadStatus("Upload Successful");
+      console.log(response.data);
+    } catch (error) {
+      setUploadStatus("Upload Failed");
+      console.error(error);
+    }
+  };
+
+  return (
+    <div>
+      <input type="file" onChange={handleFileChange} />
+
+      <button onClick={uploadMediaFile}>
+        Upload File
+      </button>
+
+      <p>{uploadStatus}</p>
+    </div>
+  );
+};
+
+export default MediaUpload;
+```
+
+---
+
+# 6. Notification Bell Component
+
+## src/components/notifications/NotificationBell.jsx
+
+```javascript
+import { useEffect, useState } from "react";
+import { useSocket } from "../../hooks/useSocket";
+
+const NotificationBell = () => {
+  const socketClient = useSocket();
+
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    if (!socketClient) return;
+
+    socketClient.on("new-notification", (notificationData) => {
+      setNotifications((prev) => [
+        notificationData,
+        ...prev,
+      ]);
+    });
+
+    return () => {
+      socketClient.off("new-notification");
+    };
+  }, [socketClient]);
+
+  return (
+    <div>
+      <button>
+        Notifications ({notifications.length})
+      </button>
+
+      <div>
+        {notifications.map((notification, index) => (
+          <p key={index}>
+            {notification.message}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default NotificationBell;
+```
+
+---
+
+# 7. Protected Route
+
+## src/components/common/ProtectedRoute.jsx
+
+```javascript
+import { Navigate } from "react-router-dom";
+
+const ProtectedRoute = ({ children }) => {
+  const authToken = localStorage.getItem("authToken");
+
+  if (!authToken) {
+    return <Navigate to="/login" />;
+  }
+
+  return children;
+};
+
+export default ProtectedRoute;
+```
+
+---
+
+# 8. React Router Setup
+
+## src/routes/AppRoutes.jsx
+
+```javascript
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import LoginPage from "../pages/LoginPage";
+import DashboardPage from "../pages/DashboardPage";
+import ChatPage from "../pages/ChatPage";
+
+import ProtectedRoute from "../components/common/ProtectedRoute";
+
+const AppRoutes = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+
+        <Route path="/login" element={<LoginPage />} />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
+export default AppRoutes;
+```
+
+---
+
+# 9. Frontend Performance Optimization
+
+## Lazy Loading Example
+
+```javascript
+import React, { Suspense, lazy } from "react";
+
+const DashboardPage = lazy(() =>
+  import("./pages/DashboardPage")
+);
+
+function App() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DashboardPage />
+    </Suspense>
+  );
+}
+
+export default App;
+```
+
+---
+
+# 10. Frontend Unit Test
+
+## src/tests/LoginPage.test.jsx
+
+```javascript
+import { render, screen } from "@testing-library/react";
+import LoginPage from "../pages/LoginPage";
+
+test("renders login heading", () => {
+  render(<LoginPage />);
+
+  const headingText = screen.getByText(/login/i);
+
+  expect(headingText).toBeInTheDocument();
+});
+```
+
+---
+
+# 11. Security Enhancements
+
+```javascript
+// Sanitize user input before rendering
+
+import DOMPurify from "dompurify";
+
+const cleanContent = DOMPurify.sanitize(userComment);
+```
+
+---
+
+# 12. Environment Variables
+
+## .env
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+---
+
+# 13. Package Installation
+
+```bash
+npm install react-router-dom axios socket.io-client
+npm install react-hot-toast react-icons
+npm install dompurify
+npm install @testing-library/react jest
+```
+
+---
+
+# 14. CI/CD GitHub Workflow
+
+## .github/workflows/frontend.yml
+
+```yaml
+name: Frontend CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Build Application
+        run: npm run build
+```
+
+---
+
+# 15. Final Frontend Features Checklist
+
+✅ User Authentication
+✅ Protected Routes
+✅ Real-Time Chat
+✅ Notifications
+✅ Typing Indicators
+✅ Image & Video Upload
+✅ Cloudinary Integration
+✅ Responsive UI
+✅ Lazy Loading
+✅ Frontend Unit Testing
+✅ Input Sanitization
+✅ CI/CD Workflow
+✅ Production Build Ready

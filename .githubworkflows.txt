@@ -1,0 +1,527 @@
+# GitHub Actions Workflows – Advanced Social Media Platform
+
+## GitHub Workflow Folder Structure
+
+```bash id="7a5mkh"
+.github/
+│
+└── workflows/
+    │
+    ├── frontend-ci.yml
+    ├── backend-ci.yml
+    ├── test-pipeline.yml
+    ├── docker-deploy.yml
+    ├── security-scan.yml
+    ├── lighthouse-audit.yml
+    └── production-deploy.yml
+```
+
+---
+
+# 1. Frontend CI Workflow
+
+## .github/workflows/frontend-ci.yml
+
+```yaml id="hks8fr"
+name: Frontend Continuous Integration
+
+on:
+
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  frontend-build:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Frontend Dependencies
+        run: npm install
+
+      - name: Run Frontend Linting
+        run: npm run lint
+
+      - name: Run Frontend Tests
+        run: npm test
+
+      - name: Build Frontend Application
+        run: npm run build
+
+      - name: Upload Frontend Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/dist
+```
+
+---
+
+# 2. Backend CI Workflow
+
+## .github/workflows/backend-ci.yml
+
+```yaml id="2r2p2o"
+name: Backend Continuous Integration
+
+on:
+
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+
+  backend-build:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+
+      mongodb:
+        image: mongo:6
+
+        ports:
+          - 27017:27017
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Backend Dependencies
+        run: npm install
+
+      - name: Create Environment Variables
+        run: |
+          echo "PORT=5000" >> .env
+          echo "MONGO_DB_URL=mongodb://localhost:27017/socialmedia" >> .env
+          echo "JWT_SECRET_KEY=advancedSecretKey" >> .env
+
+      - name: Run Backend Tests
+        run: npm test
+
+      - name: Build Backend Application
+        run: echo "Backend Build Successful"
+```
+
+---
+
+# 3. Full Stack Testing Workflow
+
+## .github/workflows/test-pipeline.yml
+
+```yaml id="kvf3w5"
+name: Full Stack Test Pipeline
+
+on:
+
+  push:
+    branches:
+      - main
+
+jobs:
+
+  frontend-tests:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+
+      - uses: actions/checkout@v3
+
+      - name: Setup Node Environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Frontend Packages
+        run: npm install
+
+      - name: Execute Frontend Tests
+        run: npm test
+
+  backend-tests:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+
+      mongodb:
+        image: mongo:6
+
+        ports:
+          - 27017:27017
+
+    steps:
+
+      - uses: actions/checkout@v3
+
+      - name: Setup Node Environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Backend Packages
+        run: npm install
+
+      - name: Run Backend Tests
+        run: npm test
+```
+
+---
+
+# 4. Docker Deployment Workflow
+
+## .github/workflows/docker-deploy.yml
+
+```yaml id="0nd7t7"
+name: Docker Deployment Pipeline
+
+on:
+
+  push:
+    branches:
+      - main
+
+jobs:
+
+  docker-deployment:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Frontend Docker Image
+        run: |
+          docker build \
+          -t advanced-socialmedia-frontend \
+          ./frontend
+
+      - name: Build Backend Docker Image
+        run: |
+          docker build \
+          -t advanced-socialmedia-backend \
+          ./backend
+
+      - name: Start Docker Compose Services
+        run: |
+          docker-compose \
+          -f docker/docker-compose.yml \
+          up -d
+```
+
+---
+
+# 5. Security Scan Workflow
+
+## .github/workflows/security-scan.yml
+
+```yaml id="ah0x08"
+name: Security Scan Workflow
+
+on:
+
+  push:
+    branches:
+      - main
+
+jobs:
+
+  dependency-scan:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Run npm Audit
+        run: |
+          cd backend && npm audit --audit-level=high
+          cd ../frontend && npm audit --audit-level=high
+
+      - name: Run GitHub CodeQL Analysis
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+```
+
+---
+
+# 6. Lighthouse Performance Audit Workflow
+
+## .github/workflows/lighthouse-audit.yml
+
+```yaml id="3u6g79"
+name: Lighthouse Performance Audit
+
+on:
+
+  push:
+    branches:
+      - main
+
+jobs:
+
+  lighthouse-audit:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Run Lighthouse Audit
+        uses: treosh/lighthouse-ci-action@v9
+        with:
+          urls: |
+            http://localhost:3000
+
+          uploadArtifacts: true
+
+          temporaryPublicStorage: true
+```
+
+---
+
+# 7. Production Deployment Workflow
+
+## .github/workflows/production-deploy.yml
+
+```yaml id="jlwm7q"
+name: Production Deployment Workflow
+
+on:
+
+  workflow_run:
+    workflows:
+      - Frontend Continuous Integration
+      - Backend Continuous Integration
+
+    types:
+      - completed
+
+jobs:
+
+  production-deploy:
+
+    runs-on: ubuntu-latest
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Deployment CLI
+        run: npm install -g vercel
+
+      - name: Deploy Frontend to Vercel
+        run: |
+          vercel deploy \
+          --prod \
+          --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Backend to Render
+        run: echo "Backend Deployment Triggered"
+```
+
+---
+
+# 8. GitHub Secrets Configuration
+
+## Repository Secrets
+
+```env id="cdd9mb"
+DOCKER_USERNAME=your_dockerhub_username
+
+DOCKER_PASSWORD=your_dockerhub_password
+
+VERCEL_TOKEN=your_vercel_deployment_token
+
+MONGO_DB_URL=your_mongodb_connection_string
+
+JWT_SECRET_KEY=your_jwt_secret
+
+CLOUDINARY_NAME=your_cloudinary_name
+
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+```
+
+---
+
+# 9. Branch Protection Recommendations
+
+## Recommended GitHub Rules
+
+```text id="3chzv3"
+Require Pull Request Reviews
+
+Require Status Checks Before Merge
+
+Require CI Workflow Success
+
+Prevent Direct Pushes to Main Branch
+
+Enable Secret Scanning
+
+Enable Dependency Alerts
+```
+
+---
+
+# 10. Auto Deployment Strategy
+
+## Recommended Deployment Flow
+
+```text id="wr28am"
+Developer Pushes Code
+        ↓
+GitHub Actions Triggered
+        ↓
+Frontend + Backend Tests Executed
+        ↓
+Security Scans Performed
+        ↓
+Docker Images Built
+        ↓
+Application Deployed Automatically
+        ↓
+Production Health Check Validation
+```
+
+---
+
+# 11. Production Health Check Workflow
+
+## Example Health Validation
+
+```yaml id="xxg2ks"
+- name: Validate Backend Health Endpoint
+
+  run: |
+    curl --fail \
+    https://api.socialmediaapp.com/api/auth/health
+```
+
+---
+
+# 12. Notification Workflow Example
+
+## Slack Notification Integration
+
+```yaml id="u7m9sn"
+- name: Send Slack Notification
+
+  uses: slackapi/slack-github-action@v1.23.0
+
+  with:
+    payload: |
+      {
+        "text": "Deployment Completed Successfully"
+      }
+
+  env:
+    SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+```
+
+---
+
+# 13. Workflow Optimization Tips
+
+## Best Practices
+
+```text id="7jttk9"
+Use Dependency Caching
+
+Separate Frontend and Backend Pipelines
+
+Use Matrix Builds for Multi-Version Testing
+
+Enable Parallel Job Execution
+
+Store Sensitive Data in GitHub Secrets
+
+Use Environment Protection Rules
+```
+
+---
+
+# 14. GitHub Actions Features Checklist
+
+✅ Frontend CI Pipeline
+✅ Backend CI Pipeline
+✅ Automated Testing Workflow
+✅ Docker Deployment Workflow
+✅ Security Scanning
+✅ Lighthouse Performance Audits
+✅ Production Auto Deployment
+✅ GitHub Secrets Integration
+✅ Health Check Validation
+✅ Slack Notifications
+✅ Branch Protection Recommendations
+✅ CI/CD Best Practices

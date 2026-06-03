@@ -1,0 +1,475 @@
+# Docker Configuration – Advanced Social Media Platform
+
+## Docker Folder Structure
+
+```bash
+docker/
+│
+├── frontend/
+│   └── Dockerfile
+│
+├── backend/
+│   └── Dockerfile
+│
+├── nginx/
+│   └── nginx.conf
+│
+├── mongo/
+│   └── mongo-init.js
+│
+├── docker-compose.yml
+└── .dockerignore
+```
+
+---
+
+# 1. Frontend Dockerfile
+
+## docker/frontend/Dockerfile
+
+```dockerfile
+# Stage 1: Build React Application
+
+FROM node:18 AS frontend-builder
+
+WORKDIR /frontend-app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+RUN npm run build
+
+# Stage 2: Serve Build with Nginx
+
+FROM nginx:stable-alpine
+
+COPY --from=frontend-builder /frontend-app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+---
+
+# 2. Backend Dockerfile
+
+## docker/backend/Dockerfile
+
+```dockerfile
+FROM node:18
+
+WORKDIR /backend-app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+EXPOSE 5000
+
+CMD ["npm", "start"]
+```
+
+---
+
+# 3. Nginx Reverse Proxy Configuration
+
+## docker/nginx/nginx.conf
+
+```nginx
+server {
+
+    listen 80;
+
+    server_name localhost;
+
+    location / {
+
+        proxy_pass http://frontend-service:80;
+
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host $host;
+    }
+
+    location /api {
+
+        proxy_pass http://backend-service:5000;
+
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host $host;
+    }
+
+    location /socket.io/ {
+
+        proxy_pass http://backend-service:5000/socket.io/;
+
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+
+        proxy_set_header Connection "Upgrade";
+
+        proxy_set_header Host $host;
+    }
+}
+```
+
+---
+
+# 4. MongoDB Initialization Script
+
+## docker/mongo/mongo-init.js
+
+```javascript
+db = db.getSiblingDB("socialmedia");
+
+db.createUser({
+  user: "socialmediaAdmin",
+  pwd: "securePassword123",
+  roles: [
+    {
+      role: "readWrite",
+      db: "socialmedia",
+    },
+  ],
+});
+```
+
+---
+
+# 5. Docker Compose Configuration
+
+## docker/docker-compose.yml
+
+```yaml
+version: "3.9"
+
+services:
+
+  frontend-service:
+
+    build:
+      context: ../frontend
+      dockerfile: ../docker/frontend/Dockerfile
+
+    container_name: socialmedia-frontend
+
+    ports:
+      - "3000:80"
+
+    depends_on:
+      - backend-service
+
+    environment:
+      - VITE_API_URL=http://localhost/api
+
+    restart: always
+
+  backend-service:
+
+    build:
+      context: ../backend
+      dockerfile: ../docker/backend/Dockerfile
+
+    container_name: socialmedia-backend
+
+    ports:
+      - "5000:5000"
+
+    environment:
+      - PORT=5000
+      - MONGO_DB_URL=mongodb://socialmediaAdmin:securePassword123@mongodb-service:27017/socialmedia
+      - JWT_SECRET_KEY=advancedSocialMediaSecret
+      - CLIENT_URL=http://localhost
+      - CLOUDINARY_NAME=your_cloud_name
+      - CLOUDINARY_API_KEY=your_cloudinary_api_key
+      - CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+
+    depends_on:
+      - mongodb-service
+
+    restart: always
+
+  mongodb-service:
+
+    image: mongo:6
+
+    container_name: socialmedia-mongodb
+
+    ports:
+      - "27017:27017"
+
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=socialmediaAdmin
+      - MONGO_INITDB_ROOT_PASSWORD=securePassword123
+
+    volumes:
+      - mongodb-data:/data/db
+      - ./mongo/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+    restart: always
+
+  nginx-service:
+
+    image: nginx:stable-alpine
+
+    container_name: socialmedia-nginx
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+
+    depends_on:
+      - frontend-service
+      - backend-service
+
+    restart: always
+
+volumes:
+
+  mongodb-data:
+```
+
+---
+
+# 6. Docker Ignore File
+
+## .dockerignore
+
+```bash
+node_modules
+npm-debug.log
+dist
+build
+.env
+coverage
+.git
+.github
+```
+
+---
+
+# 7. Backend Environment Variables
+
+## backend/.env
+
+```env
+PORT=5000
+
+MONGO_DB_URL=mongodb://socialmediaAdmin:securePassword123@mongodb-service:27017/socialmedia
+
+JWT_SECRET_KEY=advancedSocialMediaSecret
+
+CLIENT_URL=http://localhost
+
+CLOUDINARY_NAME=your_cloud_name
+
+CLOUDINARY_API_KEY=your_api_key
+
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+---
+
+# 8. Frontend Environment Variables
+
+## frontend/.env
+
+```env
+VITE_API_URL=http://localhost/api
+```
+
+---
+
+# 9. Docker Commands
+
+## Build Docker Containers
+
+```bash
+docker-compose build
+```
+
+---
+
+## Start Containers
+
+```bash
+docker-compose up -d
+```
+
+---
+
+## Stop Containers
+
+```bash
+docker-compose down
+```
+
+---
+
+## View Running Containers
+
+```bash
+docker ps
+```
+
+---
+
+## View Logs
+
+```bash
+docker-compose logs -f
+```
+
+---
+
+# 10. Health Check Example
+
+## docker-compose Health Check
+
+```yaml
+healthcheck:
+
+  test: ["CMD", "curl", "-f", "http://localhost:5000/api/auth/health"]
+
+  interval: 30s
+
+  timeout: 10s
+
+  retries: 5
+```
+
+---
+
+# 11. Production Deployment Improvements
+
+## Recommended Enhancements
+
+```yaml
+deploy:
+
+  replicas: 2
+
+  restart_policy:
+    condition: on-failure
+```
+
+---
+
+# 12. CI/CD Deployment Workflow
+
+## .github/workflows/docker-deploy.yml
+
+```yaml
+name: Docker Deployment Pipeline
+
+on:
+
+  push:
+    branches:
+      - main
+
+jobs:
+
+  docker-build-deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Frontend Image
+        run: docker build -t socialmedia-frontend ./frontend
+
+      - name: Build Backend Image
+        run: docker build -t socialmedia-backend ./backend
+
+      - name: Start Docker Compose
+        run: docker-compose -f docker/docker-compose.yml up -d
+```
+
+---
+
+# 13. Docker Security Enhancements
+
+## Secure Backend Container
+
+```dockerfile
+RUN addgroup appgroup && adduser -S appuser -G appgroup
+
+USER appuser
+```
+
+---
+
+# 14. Persistent Storage Volumes
+
+## Docker Volume Example
+
+```yaml
+volumes:
+
+  mongodb-data:
+
+  media-storage:
+```
+
+---
+
+# 15. Docker Monitoring Commands
+
+## Check Resource Usage
+
+```bash
+docker stats
+```
+
+---
+
+## Inspect Container
+
+```bash
+docker inspect socialmedia-backend
+```
+
+---
+
+# 16. Docker Features Checklist
+
+✅ Frontend Docker Container
+✅ Backend Docker Container
+✅ MongoDB Docker Service
+✅ Nginx Reverse Proxy
+✅ Socket.io WebSocket Support
+✅ Docker Compose Integration
+✅ Environment Variable Configuration
+✅ Persistent Storage Volumes
+✅ CI/CD Deployment Pipeline
+✅ Health Checks
+✅ Security Enhancements
+✅ Production Deployment Ready
